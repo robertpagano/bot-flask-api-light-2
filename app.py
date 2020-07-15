@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pickle as p
 import json
-#from summarization.textsummarization import bert_sum
+from summarization.textsummarization import bert_sum
 from docx import Document
 from docx.shared import Inches
 from linkcheck import flag_private_urls
@@ -36,7 +36,7 @@ def forbidden_handler(e: HTTPException):
 def request_timeout_handler(e: HTTPException):
     return render_template('408.html'), 408
     
-### THIS ONE WORKS WITH FORM-DATA
+# ## THIS ONE WORKS WITH FORM-DATA
 # @app.route('/api/v1/resources/text/', methods=['POST'])
 # def summarize_from_text():
     
@@ -45,7 +45,7 @@ def request_timeout_handler(e: HTTPException):
 
 #     return summary
 
-### THIS ONE WORKS WITH DOCX FILES
+# ## THIS ONE WORKS WITH DOCX FILES
 # @app.route('/api/v1/resources/document/summary', methods=['GET', 'POST'])
 # def summarize_from_file():
     
@@ -60,7 +60,7 @@ def request_timeout_handler(e: HTTPException):
 
 #     return summary
 
-### THIS ONE WORKS WITH DOCX FILES
+# ## THIS ONE WORKS WITH DOCX FILES
 # @app.route('/api/v1/resources/document/docx', methods=['GET', 'POST'])
 # def return_document():
 #     f = request.files['data']
@@ -78,7 +78,7 @@ def request_timeout_handler(e: HTTPException):
 #     new.add_paragraph(bert_sum(text))
 #     return new
 
-### Allows for HTML interface
+# ## Allows for HTML interface
 # @app.route('/transform', methods=["GET","POST"])
 # def transform_view():
 #     f = request.files['data_file']
