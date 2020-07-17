@@ -7,16 +7,16 @@ import json
 from summarization.textsummarization import bert_sum
 from docx import Document
 from docx.shared import Inches
-from linkcheck import flag_private_urls
+from linkcheck import flag_private_urls, flag_private_urls_to_dict
 
 app = Flask(__name__)
 
-### Testing out HTML
+## Testing out HTML
 @app.route('/')
 def form():
   return render_template('index.html')
 
-### Handling Errors
+## Handling Errors
 @app.errorhandler(NotFound)
 def page_not_found_handler(e: HTTPException):
     return render_template('404.html'), 404
@@ -36,7 +36,7 @@ def forbidden_handler(e: HTTPException):
 def request_timeout_handler(e: HTTPException):
     return render_template('408.html'), 408
     
-## THIS ONE WORKS WITH FORM-DATA
+## summarizer using form data as an input, returns text summary
 @app.route('/api/v1/resources/text/', methods=['POST'])
 def summarize_from_text():
     
@@ -45,7 +45,7 @@ def summarize_from_text():
 
     return summary
 
-## THIS ONE WORKS WITH DOCX FILES
+## summarizer that pulls text from word doc, returns text summary
 @app.route('/api/v1/resources/document/summary', methods=['GET', 'POST'])
 def summarize_from_file():
     
@@ -60,7 +60,7 @@ def summarize_from_file():
 
     return summary
 
-## THIS ONE WORKS WITH DOCX FILES
+## this function just takes in a word file, and returns the word file
 @app.route('/api/v1/resources/document/docx', methods=['GET', 'POST'])
 def return_document():
     f = request.files['data']
@@ -68,6 +68,7 @@ def return_document():
 
     return send_file('datafile.docx', attachment_filename='test.docx')
 
+## this takes in a word file, summarizes text, adds summary to end, and returns document. Used downstream in transform route below
 def transform():
     data = 'datafile.docx'
     document = Document(data)
@@ -78,7 +79,7 @@ def transform():
     new.add_paragraph(bert_sum(text))
     return new
 
-## Allows for HTML interface
+## shows html interface, for now users can submit a document, and it will add a summary to the end
 @app.route('/transform', methods=["GET","POST"])
 def transform_view():
     f = request.files['data_file']
@@ -89,9 +90,9 @@ def transform_view():
     result.save('result.docx')
     return send_file('result.docx', attachment_filename='new_file.docx')
 
-### THIS ONE WORKS WITH FORM-DATA
-@app.route('/api/v1/resources/document/links', methods=['POST'])
-def check_links():
+## this takes in a word file, scrapes for links, checks links, and returns an excel file with the results of link checker
+@app.route('/api/v1/resources/document/links/excel', methods=['POST'])
+def check_links_to_excel():
     
     data = request.files["link"]
     data.save('linkfile.docx')
@@ -100,5 +101,15 @@ def check_links():
     
     return send_file('links.xlsx')
 
+## this takes in a word file, scrapes for links, checks links, and returns a json object of the table of results of link checker
+@app.route('/api/v1/resources/document/links/json', methods=['POST'])
+def check_links_to_json():
+    
+    data = request.files["link"]
+    data.save('linkfile.docx')
+    results = flag_private_urls_to_dict('linkfile.docx')
+    
+    return jsonify(results)
+
 if __name__ == '__main__':
-    app.run(debug=False)
+    app.run(debug=True)
