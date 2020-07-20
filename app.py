@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pickle as p
 import json
-from summarization.textsummarization import bert_sum
+from summarization.textsummarization import bert_sum, bert_sum_dynamic
 from docx import Document
 from docx.shared import Inches
 from linkcheck import flag_private_urls, flag_private_urls_to_dict
@@ -57,6 +57,21 @@ def summarize_from_file():
         text+=para.text
     
     summary = bert_sum(text)
+
+    return summary
+
+## summarizer that pulls text from word doc, returns text summary with a dynamic length
+@app.route('/api/v1/resources/document/summary/dynamic', methods=['GET', 'POST'])
+def summarize_from_file_dynamic_length():
+    
+    f = request.files['data']
+    f.save('datafile.docx')
+    document = Document('datafile.docx')
+    text =''
+    for para in document.paragraphs:
+        text+=para.text
+    
+    summary = bert_sum_dynamic(text)
 
     return summary
 
