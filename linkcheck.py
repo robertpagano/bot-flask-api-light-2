@@ -56,7 +56,7 @@ def flag_private_urls_to_dict(filename):
     df = df.loc[df['Likely_Private_URL?'] == True]
   
     if df.shape[0] == 0:
-        result = {"Article_Name":f'{filename}',"Link_Text":'No Bad Links Detected',"Likely_Private_URL":False,'URL':False}
+        result = {"Article_Name":f'{filename}',"Link_Text":'No Bad Links Detected',"Likely_Private_URL":False,'URL':'No Bad Links Detected'}
     elif df.shape[0] > 0:
         for i, row in df.iterrows():
             result = {"Article_Name":row['Article_Name'],"Link_Text":row['Link_Text'],"Likely_Private_URL":row['Likely_Private_URL?'],'URL':row['URL']}
