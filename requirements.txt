@@ -22,7 +22,6 @@ entrypoints==0.3
 et-xmlfile==1.0.1
 filelock==3.0.12
 Flask==1.1.2
-gensim==3.8.0
 google-api-core==1.17.0
 googleapis-common-protos==1.51.0
 google-auth==1.14.1
