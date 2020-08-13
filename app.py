@@ -1,12 +1,18 @@
 from flask import Flask, request, redirect, url_for, flash, jsonify, send_file, render_template, request
+# from flask_bootstrap import Bootstrap
 from werkzeug.exceptions import Forbidden, HTTPException, NotFound, RequestTimeout, Unauthorized
 import numpy as np
 import pandas as pd
 import pickle as p
 import json
+import io
+
+from shareplum import Site
+from shareplum import Office365
+from shareplum.site import Version
 
 from summarization.textsummarization import bert_sum, bert_sum_dynamic
-
+from connector import call_for_content
 from docx import Document
 from docx.shared import Inches
 
@@ -73,7 +79,7 @@ def summarize_from_file_dynamic_length():
     f.save('datafile.docx')
     document = Document('datafile.docx')
     text =''
-    for para in document.paragraphs:
+    for para in document.paragraphs[1:]:
         text+=para.text
     
     summary = bert_sum_dynamic(text)
@@ -94,20 +100,49 @@ def transform():
     document = Document(data)
     new = Document()
     text =''
-    for para in document.paragraphs:
+    for para in document.paragraphs[1:]:
         text+=para.text
     new.add_paragraph(bert_sum(text))
     return new
+
+## this uploads the word document to a sharepoint folder
+def upload_sp(section):
+    data = 'datafile.docx'
+    document = Document(data)
+    title = document.paragraphs[0].text + ".docx"
+    summary_title = document.paragraphs[0].text + "_summary.docx"
+    authcookie = Office365('https://thespurgroup.sharepoint.com', username='kevin.lin@thespurgroup.com', password='zcmzlpbxcvtzqwzp').GetCookies()
+    site = Site('https://thespurgroup.sharepoint.com/sites/bot_project_test/', version=Version.v2016, authcookie=authcookie)
+    folder_month = site.Folder('Shared Documents/Lono2docs/Assets & Templates/')
+    month = str(folder_month.get_file('last_call.txt'))[2:-1]
+    folder_path = 'Shared Documents/Lono2docs/Newsletter content/' + month + '/' + section + '/'
+    folder_main = site.Folder(folder_path)
+
+    with open('datafile.docx', mode='rb') as file:
+        fileContent = file.read()
+        file.close()
+    summary = transform()
+    summary.save('summary.docx')
+    with open ('summary.docx', mode='rb') as file:
+        summaryContent = file.read()
+        file.close()
+    folder_main.upload_file(fileContent, title)
+    folder_main.upload_file(summaryContent, summary_title)
 
 ## shows html interface, for now users can submit a document, and it will add a summary to the end
 @app.route('/transform', methods=["GET","POST"])
 def transform_view():
     f = request.files['data_file']
+    section = request.form['section']
     f.save('datafile.docx')
     if not f:
         return "Please upload a word document"
     result = transform()
     result.save('result.docx')
+
+    ## This uploads the file to the correct folder in sharepoint
+    upload_sp(section)
+
     return send_file('result.docx', attachment_filename='new_file.docx')
 
 ## this takes in a word file, scrapes for links, checks links, and returns an excel file with the results of link checker
@@ -139,48 +174,42 @@ def check_links_to_json():
 
 @app.route('/api/v1/resources/document/docbuilder', methods=["POST"])
 def build_docs():
-    uploaded_files = request.files.getlist("file[]")
-    paths = request.form.getlist("paths[]") #work
-
-    # print(uploaded_files)
+    '''
+    this takes in two arrays - one for files and one for filepaths. 
+    It then creates a dictionary with the following structure:
     
+    {article_name: {
+        doc: (docx object)
+        month: (month)
+        section: (section)}
+    }
+    this will then be used to create the master document files
+    '''
 
-    # docx_list = []
-    docx_dict = {}
-
-    # {filename: {
-    ## month:
-    ## section:
-    ## document object:
-    ## article title:
-    # }}
-
+    uploaded_files = request.form.getlist("file")
+    path_list = request.form.getlist("paths")
+    path_list= path_list[0]
+    uploaded_files = uploaded_files[0]
+    doc_list = []
+    for i in uploaded_files:
+        doc_list.append(i)
     for document in uploaded_files:
         #make each into a docx object
-        filename = document.filename # + '.docx'# great this works
-        print(filename)
-        document.save(filename)
-        doc = Document(filename)
+        source_stream = io.BytesIO(document)
+        doc = Document(source_stream)
+        doc_list.append(doc)
+    final_dict = word_doc_gen.make_doc_dict(path_list, doc_list)
+    return str(final_dict)
 
-        docx_dict.update({filename: doc})
-        ## docx_list.append(doc)
-        ## make a dict like "filename: doc object" (cant return dict not json serializable? maybe jsonify it)
-        ## i think that's fine, will just use this dict for the function moving forward
-        ## <class 'werkzeug.datastructures.FileStorage'>
-
-        ## THIS NEEDS TO TAKE IN TWO ARRAYS: ONE FOR FILES AND ONE FOR PATHS
-
-    print(docx_dict)    
-
-    paths_list = []
+@app.route('/api/v1/resources/document/links/test', methods=['POST'])
+def check_links_to_json_test():
     
-    for path in paths:
-        paths_list.append(path)
-    
-    print(paths_list)
-
-    return ''
-
+    data = request.form["test"]
+    source_stream = io.StringIO(data)
+    doc = Document(source_stream)
+    doc.save('linkfiletest.docx')
+    # k = type(data)
+    return str(doc)
 
 
 @app.route("/upload", methods=["POST"])
@@ -196,6 +225,10 @@ def upload():
 #     print(images[image])        #this line will print value for the image key
 #     file_name = images[image].filename
 #     images[image].save(some_destination)
+
+@app.route("/api/v1/resources/document/call", methods=["POST"])
+def content_call():
+    call_for_content()
 
 if __name__ == '__main__':
     app.run(debug=True)
